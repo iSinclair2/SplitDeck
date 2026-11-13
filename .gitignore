@@ -1,0 +1,7 @@
+.build/
+dist/
+SplitDeck.app/
+.DS_Store
+*.xcuserstate
+xcuserdata/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
