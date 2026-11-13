@@ -28,11 +28,20 @@ SplitDeck is an open-source native macOS companion window designed to stay usefu
 
 - macOS 14 or later.
 - Xcode with the matching macOS SDK for development.
-- Apple silicon is the currently tested release target.
+- Releases are universal (Apple silicon and Intel). Apple silicon is the most tested.
 
 ## Install
 
-Download `SplitDeck-<version>-macOS.zip` from the Releases page, unzip it and move **SplitDeck.app** to Applications. The release build is ad-hoc signed rather than notarised, so the first time you open it, right-click the app and choose **Open** (or allow it in System Settings → Privacy & Security).
+1. Download `SplitDeck-<version>-macOS.zip` from the Releases page and double-click it to unzip.
+2. Move **SplitDeck.app** to your Applications folder.
+3. Open it. Xcode is not needed; the download is a ready-to-run app for Apple silicon and Intel Macs on macOS 14 or later.
+
+The app is open source and ad-hoc signed, but not notarised by Apple, so the first launch is blocked with a warning. To allow it:
+
+- **macOS 15 Sequoia and later:** try to open the app once, then go to **System Settings → Privacy & Security**, scroll to the message about SplitDeck and click **Open Anyway**. Confirm with your password.
+- **macOS 14 Sonoma:** right-click (or Control-click) the app, choose **Open**, then click **Open** in the dialog.
+
+You only need to do this once.
 
 ## Build
 

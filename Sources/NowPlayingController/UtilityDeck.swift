@@ -722,19 +722,41 @@ struct UtilityDeck: View {
                                 .padding(.horizontal, ultraCompact ? 10 : 18)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             } else {
-                                HStack(spacing: 12) { VStack(alignment: .leading, spacing: 1) { Image(systemName: weatherSymbol).font(.title2); Text(weather.temperature.map { "\($0)°" } ?? "—").font(.system(size: 34, weight: .bold)); Text(weather.condition).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1) }; weatherMetric("wind", weather.wind, label: "Wind"); weatherMetric("drop.fill", weather.humidity, label: "Humidity"); weatherMetric("sunset.fill", weather.sunset, label: "Sunset") }.padding(.horizontal, 20).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                                // Four equal, centred columns so the readings are evenly spaced.
+                                HStack(spacing: 0) {
+                                    VStack(spacing: 2) {
+                                        Image(systemName: weatherSymbol).font(.system(size: 20, weight: .semibold))
+                                        Text(weather.temperature.map { "\($0)°" } ?? "—").font(.system(size: 30, weight: .bold)).lineLimit(1)
+                                        Text(weather.condition).font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                                    }
+                                    .frame(maxWidth: .infinity)
+                                    weatherMetricCentered("wind", weather.wind, label: "Wind")
+                                    weatherMetricCentered("drop.fill", weather.humidity, label: "Humidity")
+                                    weatherMetricCentered("sunset.fill", weather.sunset, label: "Sunset")
+                                }
+                                .padding(.horizontal, 12)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             }
                         }
                     }
                 } else if presentation == .wide {
                     HStack(spacing: 0) {
                         liveAnalogClock(context.date).padding(8).frame(maxWidth: .infinity, maxHeight: .infinity)
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(weather.condition).font(.title2.bold()).lineLimit(1)
-                            Text(weather.temperature.map { "\($0)°" } ?? "—").font(.title.bold())
+                        VStack(spacing: 8) {
+                            HStack(alignment: .center, spacing: 8) {
+                                Image(systemName: weatherSymbol).font(.system(size: 24, weight: .semibold))
+                                Text(weather.temperature.map { "\($0)°" } ?? "—").font(.system(size: 30, weight: .bold))
+                            }
+                            Text(weather.condition).font(.system(size: 15, weight: .semibold)).foregroundStyle(.secondary).lineLimit(1)
                             Divider()
-                            HStack { weatherMetric("wind", weather.wind, label: "Wind"); weatherMetric("drop.fill", weather.humidity, label: "Humidity"); weatherMetric("sunset.fill", weather.sunset, label: "Sunset") }
-                        }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                            HStack(spacing: 0) {
+                                weatherMetricCentered("wind", weather.wind, label: "Wind")
+                                weatherMetricCentered("drop.fill", weather.humidity, label: "Humidity")
+                                weatherMetricCentered("sunset.fill", weather.sunset, label: "Sunset")
+                            }
+                        }
+                        .padding(.trailing, 6)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                     }
                 } else if presentation == .expanded {
                     VStack(spacing: 14) {
@@ -766,8 +788,6 @@ struct UtilityDeck: View {
     private func liveAnalogClock(_ date: Date) -> some View {
         AnalogClockFace(date: date, timeZone: .current, showsTicks: true)
     }
-
-    private func weatherMetric(_ symbol: String, _ value: String, label: String? = nil) -> some View { VStack(alignment: .leading, spacing: 3) { Image(systemName: symbol).font(.system(size: 17, weight: .semibold)); Text(value).font(.system(size: 15, weight: .bold)).lineLimit(1).minimumScaleFactor(0.8); if let label { Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary) } }.frame(maxWidth: .infinity, alignment: .leading) }
 
     private func weatherMetricCentered(_ symbol: String, _ value: String, label: String) -> some View {
         VStack(spacing: 3) {

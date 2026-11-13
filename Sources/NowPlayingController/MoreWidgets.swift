@@ -165,8 +165,10 @@ private struct DeckRing<Center: View>: View {
     @ViewBuilder let center: Center
     var body: some View {
         ZStack {
-            Circle().stroke(Color.primary.opacity(0.12), lineWidth: lineWidth)
-            Circle().trim(from: 0, to: max(0.002, min(1, progress)))
+            // Inset by half the line width so the whole stroke stays inside the frame
+            // (a plain stroke straddles the edge and gets clipped by the card).
+            Circle().inset(by: lineWidth / 2).stroke(Color.primary.opacity(0.12), lineWidth: lineWidth)
+            Circle().inset(by: lineWidth / 2).trim(from: 0, to: max(0.002, min(1, progress)))
                 .stroke(tint, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)).rotationEffect(.degrees(-90))
             center
         }
@@ -457,6 +459,22 @@ private struct ForecastWidget: View {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(text: "Next hours", trailing: model.weather.place)
                 hourlyStrip(count: size.isBanner ? 10 : 6)
+                if size == "medium" {
+                    // Fill the 2×1 card with the days ahead rather than leaving it half empty.
+                    HStack(spacing: 4) {
+                        ForEach(model.daily.dropFirst().prefix(4)) { day in
+                            HStack(spacing: 5) {
+                                Image(systemName: WeatherCode.symbol(day.code)).symbolRenderingMode(.multicolor).font(.system(size: 15))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(day.date.formatted(.dateTime.weekday(.abbreviated))).font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                                    Text("\(degrees(day.high)) \(degrees(day.low))").font(.system(size: 12, weight: .bold).monospacedDigit())
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    .frame(maxHeight: .infinity)
+                }
                 if size.isLarge {
                     Divider()
                     SectionLabel(text: "7 days")
@@ -555,26 +573,35 @@ private struct AirQualityWidget: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                HStack(spacing: 16) {
-                    gauge(aqi, diameter: size.isBanner ? 92 : 120)
-                    VStack(alignment: .leading, spacing: 6) {
-                        metric("PM2.5", air.pm25, unit: "µg/m³")
-                        metric("PM10", air.pm10, unit: "µg/m³")
-                        uvRow(air.uv)
-                        if size.isLarge || size.isBanner, !air.pollen.isEmpty {
-                            HStack(spacing: 6) {
-                                ForEach(air.pollen.prefix(size.isBanner ? 3 : 4), id: \.name) { pollen in
-                                    VStack(spacing: 1) {
-                                        Text(pollen.name).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
-                                        Text(pollenLevel(pollen.value)).font(.system(size: 11, weight: .bold))
-                                    }
-                                    .frame(maxWidth: .infinity).deckRow(compact: true)
-                                }
+                if size.isLarge {
+                    // 2×2: a large gauge, the readings beneath it, then pollen across the bottom.
+                    VStack(spacing: 16) {
+                        gauge(aqi, diameter: 168)
+                        readings(air)
+                        if !air.pollen.isEmpty { pollenRow(air.pollen, limit: 4) }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if size.isBanner {
+                    // Banner: gauge, readings and pollen as three equal columns.
+                    HStack(spacing: 0) {
+                        gauge(aqi, diameter: 96).frame(maxWidth: .infinity)
+                        readings(air).frame(maxWidth: .infinity)
+                        if !air.pollen.isEmpty {
+                            LazyVGrid(columns: [GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6)], spacing: 6) {
+                                ForEach(air.pollen.prefix(4), id: \.name) { pollenChip($0) }
                             }
+                            .frame(maxWidth: .infinity)
                         }
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    // 2×1: the gauge and the readings each take half the card, centred in their half.
+                    HStack(spacing: 0) {
+                        gauge(aqi, diameter: 124).frame(maxWidth: .infinity)
+                        readings(air).frame(maxWidth: .infinity)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         } else {
             LoadingState(kind: "airquality", message: "Loading air quality…", failed: model.airQualityFailed)
@@ -593,12 +620,31 @@ private struct AirQualityWidget: View {
         .help("European Air Quality Index")
     }
 
-    private func metric(_ name: String, _ value: Double?, unit: String) -> some View {
-        HStack {
-            Text(name).font(DeckFont.caption).foregroundStyle(.secondary).frame(width: 46, alignment: .leading)
-            Text(value.map { "\(Int($0.rounded()))" } ?? "—").font(.system(size: 14, weight: .bold).monospacedDigit())
-            Text(unit).font(.system(size: 10)).foregroundStyle(.secondary)
-            Spacer(minLength: 0)
+    /// PM2.5, PM10 and UV in one grid, so labels, values and units line up in columns.
+    private func readings(_ air: AirQuality) -> some View {
+        let uv = air.uv ?? 0
+        let (uvName, uvColor) = Self.uvCategory(uv)
+        return Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 7) {
+            readingRow("PM2.5", air.pm25.map { "\(Int($0.rounded()))" } ?? "—", detail: "µg/m³")
+            readingRow("PM10", air.pm10.map { "\(Int($0.rounded()))" } ?? "—", detail: "µg/m³")
+            GridRow {
+                HStack(spacing: 4) {
+                    Image(systemName: "sun.max.fill").foregroundStyle(uvColor)
+                    Text("UV").foregroundStyle(.secondary)
+                }
+                .font(DeckFont.caption)
+                Text("\(Int(uv.rounded()))").font(.system(size: 15, weight: .bold).monospacedDigit())
+                    .gridColumnAlignment(.trailing)
+                Text(uvName).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func readingRow(_ name: String, _ value: String, detail: String) -> some View {
+        GridRow {
+            Text(name).font(DeckFont.caption).foregroundStyle(.secondary)
+            Text(value).font(.system(size: 15, weight: .bold).monospacedDigit()).gridColumnAlignment(.trailing)
+            Text(detail).font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
         }
     }
 
@@ -610,6 +656,19 @@ private struct AirQualityWidget: View {
             Text("UV \(Int(value.rounded()))").font(.system(size: 14, weight: .bold).monospacedDigit())
             Text(name).font(DeckFont.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func pollenRow(_ pollen: [(name: String, value: Double)], limit: Int) -> some View {
+        HStack(spacing: 6) { ForEach(pollen.prefix(limit), id: \.name) { pollenChip($0) } }
+    }
+
+    private func pollenChip(_ pollen: (name: String, value: Double)) -> some View {
+        VStack(spacing: 1) {
+            Text(pollen.name).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+            Text(pollenLevel(pollen.value)).font(.system(size: 11, weight: .bold))
+        }
+        .lineLimit(1).minimumScaleFactor(0.7)
+        .frame(maxWidth: .infinity).deckRow(compact: true)
     }
 
     private func pollenLevel(_ value: Double) -> String {
@@ -1164,6 +1223,7 @@ private struct DisksWidget: View {
                         Text(ByteCountFormatter.string(fromByteCount: first.available, countStyle: .file)).font(DeckFont.number(19)).lineLimit(1).minimumScaleFactor(0.6)
                         Text("free").font(DeckFont.caption).foregroundStyle(.secondary)
                     }
+                    .padding(.horizontal, 16) // stay inside the ring
                 }
                 .frame(width: 110, height: 110)
                 Text(first.name).font(DeckFont.caption).lineLimit(1)

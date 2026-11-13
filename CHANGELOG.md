@@ -20,6 +20,9 @@ Initial open-source release.
 - System, Performance, Network, Internet Speed, Public IP, Bluetooth Devices, Quick Toggles and notification badges.
 - Photo Frame, News (RSS/Atom), Hacker News, On This Day, Currency and Crypto.
 
+### Distribution
+- Universal app for Apple silicon and Intel Macs running macOS 14 or later.
+
 ### Appearance and privacy
 - Light, dark, solid, liquid-glass and artwork-derived appearances; Meeting Mode.
 - Permissions are requested only when a widget needs them. No analytics, accounts or API keys.
