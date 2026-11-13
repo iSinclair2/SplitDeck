@@ -83,3 +83,40 @@ final class AppAppearance {
         UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" ? .dark : .light
     }
 }
+
+/// Artwork that always covers its container edge to edge, whatever its shape (square
+/// album art or a 16:9 video thumbnail), cropping the overflow from the centre.
+/// `scaledToFill()` alone sizes the image larger than its container, which also enlarges
+/// any stack it's in; drawing it as an overlay on a frame that takes exactly the offered
+/// size keeps the layout fixed and the artwork filling it.
+struct ArtworkFill: View {
+    let image: NSImage
+
+    var body: some View {
+        Color.clear
+            .overlay {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+            }
+            .clipped()
+    }
+}
+
+/// Makes a view clickable by wrapping it in a plain button. The deck window moves when
+/// its background is dragged, and AppKit can treat a click on a non-control view as the
+/// start of a window drag, so `onTapGesture` isn't reliable there; a real button is.
+private struct ClickAction: ViewModifier {
+    let action: () -> Void
+    func body(content: Content) -> some View {
+        Button(action: action) { content.contentShape(Rectangle()) }
+            .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    func clickAction(perform action: @escaping () -> Void) -> some View {
+        modifier(ClickAction(action: action))
+    }
+}

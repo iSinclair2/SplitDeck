@@ -272,7 +272,7 @@ struct SettingsView: View {
             }
         }
         Section("Media artwork") {
-            Text("Music doesn't share artwork through the system Now Playing data, so SplitDeck asks the player for the exact artwork. Without access it falls back to an online search, which can pick a different edition's cover.")
+            Text("Music doesn't share artwork through the system Now Playing data, and browsers rarely do, so SplitDeck asks the app instead: Music and Spotify for the exact cover, and browsers for the playing tab so it can show the video's thumbnail (YouTube, Vimeo, Twitch and more). Without access it falls back to an online search, which can pick the wrong cover.")
                 .font(.caption).foregroundStyle(.secondary)
             ForEach(MediaAutomationPermission.installedPlayers) { player in
                 automationRow(player)
@@ -324,7 +324,9 @@ struct SettingsView: View {
                 Text("Control \(player.name)")
                 Text(state == .denied
                      ? "Access was denied. Turn on \(player.name) under SplitDeck in Privacy & Security → Automation."
-                     : "Lets SplitDeck read the current track's artwork from \(player.name).")
+                     : (BrowserArtwork.isBrowser(player.bundleIdentifier)
+                        ? "Lets SplitDeck find the playing tab in \(player.name) to show its video thumbnail."
+                        : "Lets SplitDeck read the current track's artwork from \(player.name)."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()

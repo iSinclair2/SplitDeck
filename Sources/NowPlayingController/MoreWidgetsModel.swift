@@ -852,6 +852,15 @@ final class MoreWidgetsModel {
 enum Shell {
     struct Result: Sendable { let output: String; let status: Int32 }
 
+    /// Runs off the main thread; returns stdout only if the command succeeded with output.
+    nonisolated static func runAsync(_ executable: String, _ arguments: [String]) async -> Data? {
+        await Task.detached(priority: .utility) {
+            let result = run(executable, arguments)
+            guard result.status == 0, !result.output.isEmpty else { return nil }
+            return result.output.data(using: .utf8)
+        }.value
+    }
+
     nonisolated static func run(_ executable: String, _ arguments: [String]) -> Result {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)

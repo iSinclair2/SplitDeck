@@ -914,7 +914,7 @@ struct UtilityDeck: View {
                             LinearGradient(colors: [.black.opacity(0.96), activeAccent.opacity(0.92), activeAccent.opacity(0.48), .black.opacity(0.72)], startPoint: .topLeading, endPoint: .bottomTrailing)
                         }
                         ZStack {
-                            if albumArtworkEnabled, let image = player.artworkImage { Image(nsImage: image).resizable().scaledToFill().clipped() }
+                            if albumArtworkEnabled, let image = player.artworkImage { ArtworkFill(image: image) }
                             else { Image(systemName: "waveform").font(.system(size: 54, weight: .medium)).foregroundStyle(.white.opacity(0.92)) }
                         }
                         .id(player.artworkRevision).transition(.opacity)
@@ -951,7 +951,7 @@ struct UtilityDeck: View {
                 .overlay {
                     ZStack {
                         Group {
-                            if albumArtworkEnabled, let image = player.artworkImage { Image(nsImage: image).resizable().scaledToFill() }
+                            if albumArtworkEnabled, let image = player.artworkImage { ArtworkFill(image: image) }
                             else { Image(systemName: "music.note").font(.title) }
                         }
                         .id(player.artworkRevision).transition(.opacity)
@@ -960,7 +960,7 @@ struct UtilityDeck: View {
                 }
                 .clipped().background(widgetBackgroundsEnabled ? Color.secondary.opacity(0.12) : Color.clear)
                 .contentShape(Rectangle())
-                .onTapGesture { openNowPlayingSource() }
+                .clickAction { openNowPlayingSource() }
                 .help("Open the playing app")
     }
 
@@ -1229,7 +1229,7 @@ struct UtilityDeck: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { openSettings(.battery) }
+        .clickAction { openSettings(.battery) }
         .help("Open Battery settings")
     }
 
@@ -1313,13 +1313,29 @@ struct UtilityDeck: View {
                     .padding(.top, presentation == .banner ? 8 : 22)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                 }
-                Button {
-                    let next = style == "digital" ? "analog" : "digital"
-                    if let instance { updateSettings(instance) { $0["style"] = next } } else { worldClockStyle = next }
-                } label: { Image(systemName: style == "digital" ? "clock" : "digitalcrown.horizontal.arrow.counterclockwise") }.buttonStyle(.plain).help("Switch clock style").opacity(clocksHovering ? 1 : 0).allowsHitTesting(clocksHovering)
+                // TimelineView only redraws on its tick; give it a new identity when the style or
+                // cities change so the switch shows immediately instead of up to 30 seconds later.
+                .id("\(style)|\(selected.map(\.id).joined(separator: ","))")
+                // Always clickable (faint until hovered): the icon shows the style you'll switch to.
+                Button { toggleClockStyle(style, instance: instance) } label: {
+                    Image(systemName: style == "digital" ? "clock" : "textformat.123")
+                        .font(.system(size: 12, weight: .semibold)).frame(width: 22, height: 22)
+                        .background(Color.primary.opacity(0.06), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .help(style == "digital" ? "Show analog clocks" : "Show digital clocks")
+                .opacity(clocksHovering ? 1 : 0.4)
             }
         }
         .onHover { clocksHovering = $0 }
+    }
+
+    /// Saves the style on this widget (each World Clocks widget keeps its own).
+    private func toggleClockStyle(_ current: String, instance: WidgetInstance?) {
+        let next = current == "digital" ? "analog" : "digital"
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if let instance { updateSettings(instance) { $0["style"] = next } } else { worldClockStyle = next }
+        }
     }
 
     @ViewBuilder private func adaptiveGrid<C: View>(banner: Bool, count: Int, spacing: CGFloat, @ViewBuilder content: () -> C) -> some View {
@@ -1358,7 +1374,7 @@ struct UtilityDeck: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { openApp("com.apple.iCal") }
+        .clickAction { openApp("com.apple.iCal") }
         .help("Open Calendar")
     }
 
@@ -1465,7 +1481,7 @@ struct UtilityDeck: View {
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture { openApp("com.apple.ActivityMonitor") }
+        .clickAction { openApp("com.apple.ActivityMonitor") }
         .help("Open Activity Monitor")
     }
 

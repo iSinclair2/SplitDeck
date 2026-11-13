@@ -72,7 +72,7 @@ SplitDeck asks for each permission only when a widget needs it, usually from a b
 | Calendars | Calendar, Month and Next Meeting widgets |
 | Reminders | Reminders widget (read, complete and add) |
 | Accessibility | Unread badge counts from Dock icons, never notification content; also the media-key fallback for players other than Music and Spotify |
-| Automation | Music and Spotify, for exact artwork and playback controls; System Events, for the Dark Mode quick toggle |
+| Automation | Music and Spotify, for exact artwork and playback controls; your browser (Safari, Chrome, Edge, Brave, Arc, Vivaldi), to find the playing tab for its video thumbnail; System Events, for the Dark Mode quick toggle |
 | Files & Folders | Recent Files reads your Documents and Downloads folders, only after you click Allow |
 | Photos | Photo Frame, when set to show your Photos favourites |
 | Bluetooth | Battery levels in Bluetooth Devices |
@@ -88,6 +88,7 @@ Online widgets use free public services that need no account or key. Apart from 
 |---|---|
 | [wttr.in](https://wttr.in) | Current weather (every 15 minutes), and an approximate location from your IP address when no place is chosen |
 | [Open-Meteo](https://open-meteo.com) | Hourly and 7-day forecast, sunrise and sunset, air quality, UV, pollen, and place search |
+| YouTube thumbnails (i.ytimg.com), or the playing page's own preview image | Artwork for video and audio playing in a browser |
 | iTunes Search API | Fallback artwork when the player provides none |
 | [Frankfurter](https://frankfurter.dev) | Currency rates (European Central Bank) |
 | [CoinGecko](https://www.coingecko.com) | Crypto prices |

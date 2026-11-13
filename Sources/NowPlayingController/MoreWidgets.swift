@@ -1230,7 +1230,7 @@ private struct DisksWidget: View {
                 if model.disks.count > 1 { Text("+\(model.disks.count - 1) more").font(.system(size: 11)).foregroundStyle(.secondary) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onTapGesture { open(first.url) }
+            .clickAction { open(first.url) }
         } else {
             ScrollView(.vertical, showsIndicators: false) {
                 let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: size.isBanner ? 3 : 1)
@@ -1260,7 +1260,7 @@ private struct DisksWidget: View {
             }
         }
         .deckRow()
-        .onTapGesture { open(disk.url) }
+        .clickAction { open(disk.url) }
         .help("Show in Finder")
     }
 }
@@ -1287,7 +1287,7 @@ private struct BluetoothWidget: View {
                 if model.bluetooth.count > 1 { Text("+\(model.bluetooth.count - 1) more").font(.system(size: 11)).foregroundStyle(.secondary) }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onTapGesture { openSettingsPane("com.apple.BluetoothSettings") }
+            .clickAction { openSettingsPane("com.apple.BluetoothSettings") }
         } else {
             let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: size.isBanner ? 3 : 1)
             ScrollView(.vertical, showsIndicators: false) {
@@ -1300,7 +1300,7 @@ private struct BluetoothWidget: View {
                             batteryLine(device)
                         }
                         .deckRow()
-                        .onTapGesture { openSettingsPane("com.apple.BluetoothSettings") }
+                        .clickAction { openSettingsPane("com.apple.BluetoothSettings") }
                     }
                 }
             }
@@ -1422,7 +1422,7 @@ private struct PhotoFrameWidget: View {
                     }
                 }
                 .animation(.easeInOut(duration: 1.0), value: ObjectIdentifier(photo.image))
-                .onTapGesture { Task { await model.nextPhoto() } }
+                .clickAction { Task { await model.nextPhoto() } }
                 .help("Click for the next photo")
             } else {
                 VStack(spacing: 8) {

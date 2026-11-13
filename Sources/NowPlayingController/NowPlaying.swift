@@ -1,6 +1,7 @@
 import AppKit
 import CoreServices
 import Foundation
+import ImageIO
 
 struct NowPlayingItem: Equatable, Sendable {
     var title = "Nothing Playing"
@@ -41,6 +42,11 @@ enum ArtworkResolver {
             return data
         }
         if sourceBundle == "com.spotify.client", let data = await spotifyArtwork() {
+            return data
+        }
+        // Browsers rarely pass artwork to Now Playing; use the playing tab's video thumbnail.
+        if BrowserArtwork.isBrowser(sourceBundle),
+           let data = await BrowserArtwork.fetch(title: title, sourceBundle: sourceBundle) {
             return data
         }
         guard !artist.isEmpty, !title.isEmpty else { return nil }
@@ -147,6 +153,149 @@ enum ArtworkResolver {
 
 }
 
+/// Artwork for media playing in a web browser. The browser is asked (over Apple Events)
+/// for its open tabs; the tab whose title matches what's playing gives the page URL, and
+/// the thumbnail comes from the site: YouTube's own thumbnail server, or the page's
+/// `og:image` preview for other sites (Vimeo, Twitch, SoundCloud, Bandcamp, iPlayer…).
+enum BrowserArtwork {
+    private static let safari: Set<String> = ["com.apple.Safari", "com.apple.SafariTechnologyPreview"]
+    private static let chromium: Set<String> = [
+        "com.google.Chrome", "com.google.Chrome.beta", "com.google.Chrome.canary", "com.microsoft.edgemac",
+        "com.brave.Browser", "company.thebrowser.Browser", "com.vivaldi.Vivaldi"
+    ]
+    private static let mediaHosts = ["youtube.com", "youtu.be", "vimeo.com", "twitch.tv", "soundcloud.com", "bandcamp.com",
+                                     "dailymotion.com", "bbc.co.uk", "mixcloud.com", "nebula.tv", "music.apple.com"]
+
+    static func isBrowser(_ bundleIdentifier: String) -> Bool {
+        safari.contains(bundleIdentifier) || chromium.contains(bundleIdentifier)
+    }
+
+    static func fetch(title: String, sourceBundle: String) async -> Data? {
+        guard let page = await playingTabURL(title: title, browser: sourceBundle) else { return nil }
+        if let id = youTubeID(page) { return await youTubeThumbnail(id) }
+        return await previewImage(of: page)
+    }
+
+    // MARK: Finding the tab
+
+    private static func playingTabURL(title: String, browser: String) async -> URL? {
+        // Safari calls a tab's title "name"; Chromium browsers call it "title".
+        let titleProperty = safari.contains(browser) ? "name" : "title"
+        let script = """
+        set output to ""
+        tell application id "\(browser)"
+            repeat with w in windows
+                repeat with t in tabs of w
+                    try
+                        set output to output & (URL of t) & tab & (\(titleProperty) of t) & linefeed
+                    end try
+                end repeat
+            end repeat
+        end tell
+        return output
+        """
+        guard let data = await Shell.runAsync("/usr/bin/osascript", ["-e", script]),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        let tabs = text.split(separator: "\n").compactMap { line -> (url: URL, title: String)? in
+            let parts = line.split(separator: "\t", maxSplits: 1).map(String.init)
+            guard parts.count == 2, let url = URL(string: parts[0]), url.scheme?.hasPrefix("http") == true else { return nil }
+            return (url, parts[1])
+        }
+        let wanted = normalised(title)
+        func isMedia(_ url: URL) -> Bool { mediaHosts.contains { url.host()?.hasSuffix($0) == true } }
+        // Best: a tab whose title contains what's playing. Otherwise, the only media-site tab.
+        let scored = tabs.map { tab -> (URL, Int) in
+            let tabTitle = normalised(tab.title)
+            var score = 0
+            if !wanted.isEmpty, tabTitle.contains(wanted) || (!tabTitle.isEmpty && wanted.contains(tabTitle)) { score += 3 }
+            if isMedia(tab.url) { score += 1 }
+            if youTubeID(tab.url) != nil { score += 1 }
+            return (tab.url, score)
+        }
+        if let best = scored.filter({ $0.1 >= 3 }).max(by: { $0.1 < $1.1 }) { return best.0 }
+        let mediaTabs = tabs.filter { isMedia($0.url) }
+        return mediaTabs.count == 1 ? mediaTabs[0].url : nil
+    }
+
+    private static func normalised(_ value: String) -> String {
+        value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current).lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+
+    // MARK: YouTube
+
+    /// Video ID from watch, youtu.be, Shorts, live, embed and YouTube Music links.
+    static func youTubeID(_ url: URL) -> String? {
+        guard let host = url.host()?.lowercased() else { return nil }
+        let path = url.pathComponents.filter { $0 != "/" }
+        var id: String?
+        if host.hasSuffix("youtu.be") {
+            id = path.first
+        } else if host.hasSuffix("youtube.com") || host.hasSuffix("youtube-nocookie.com") {
+            if let v = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "v" })?.value {
+                id = v
+            } else if path.count >= 2, ["shorts", "live", "embed", "v"].contains(path[0]) {
+                id = path[1]
+            }
+        }
+        guard let id, id.count == 11, id.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "-" || $0 == "_" }) else { return nil }
+        return id
+    }
+
+    private static func youTubeThumbnail(_ id: String) async -> Data? {
+        // maxresdefault is 1280×720 with no bars, but isn't generated for every video.
+        if let data = await Web.data(URL(string: "https://i.ytimg.com/vi/\(id)/maxresdefault.jpg")!), isUsableImage(data) {
+            return data
+        }
+        // hqdefault always exists but is 4:3 with black bars above and below a 16:9 frame.
+        guard let data = await Web.data(URL(string: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg")!) else { return nil }
+        return cropToWidescreen(data) ?? data
+    }
+
+    // MARK: Other sites
+
+    /// The page's `og:image` (or `twitter:image`) link-preview picture.
+    private static func previewImage(of page: URL) async -> Data? {
+        guard let html = await Web.data(page).flatMap({ String(data: $0.prefix(600_000), encoding: .utf8) ?? String(data: $0.prefix(600_000), encoding: .isoLatin1) }) else { return nil }
+        let patterns = [
+            #"<meta[^>]+(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["'][^>]*content=["']([^"']+)["']"#,
+            #"<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image(?::secure_url)?|twitter:image)["']"#
+        ]
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+                  let match = regex.firstMatch(in: html, range: NSRange(html.startIndex..., in: html)),
+                  let range = Range(match.range(at: 1), in: html) else { continue }
+            let link = String(html[range]).replacingOccurrences(of: "&amp;", with: "&")
+            guard let imageURL = URL(string: link, relativeTo: page)?.absoluteURL,
+                  let data = await Web.data(imageURL), isUsableImage(data) else { continue }
+            return data
+        }
+        return nil
+    }
+
+    // MARK: Image helpers
+
+    /// Rejects placeholders and tiny icons (YouTube serves a 120×90 grey image for some misses).
+    private static func isUsableImage(_ data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int else { return false }
+        return width >= 200 && height >= 150
+    }
+
+    /// Trims a 4:3 image to its centred 16:9 band (removing letterbox bars).
+    private static func cropToWidescreen(_ data: Data) -> Data? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        let width = CGFloat(image.width), height = CGFloat(image.height)
+        let bandHeight = (width * 9 / 16).rounded()
+        guard bandHeight < height,
+              let cropped = image.cropping(to: CGRect(x: 0, y: ((height - bandHeight) / 2).rounded(), width: width, height: bandHeight)) else { return nil }
+        return NSBitmapImageRep(cgImage: cropped).representation(using: .jpeg, properties: [.compressionFactor: 0.9])
+    }
+}
+
 /// Automation (Apple Events) permission for the players SplitDeck asks for artwork.
 /// Without it, artwork requests to Music or Spotify fail silently and SplitDeck has to
 /// fall back to a less reliable online search.
@@ -161,7 +310,13 @@ enum MediaAutomationPermission {
 
     static let players = [
         Player(name: "Music", bundleIdentifier: "com.apple.Music"),
-        Player(name: "Spotify", bundleIdentifier: "com.spotify.client")
+        Player(name: "Spotify", bundleIdentifier: "com.spotify.client"),
+        Player(name: "Safari", bundleIdentifier: "com.apple.Safari"),
+        Player(name: "Google Chrome", bundleIdentifier: "com.google.Chrome"),
+        Player(name: "Microsoft Edge", bundleIdentifier: "com.microsoft.edgemac"),
+        Player(name: "Brave", bundleIdentifier: "com.brave.Browser"),
+        Player(name: "Arc", bundleIdentifier: "company.thebrowser.Browser"),
+        Player(name: "Vivaldi", bundleIdentifier: "com.vivaldi.Vivaldi")
     ]
 
     /// Players installed on this Mac.

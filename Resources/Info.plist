@@ -13,7 +13,7 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSAppleEventsUsageDescription</key>
-    <string>SplitDeck controls Music or Spotify (artwork and playback) and, when you use Quick Toggles, System Events to switch dark mode.</string>
+    <string>SplitDeck asks Music or Spotify for artwork and playback control, asks your browser which tab is playing so it can show the video thumbnail, and, for Quick Toggles, uses System Events to switch dark mode.</string>
     <key>NSAccessibilityUsageDescription</key>
     <string>SplitDeck reads unread badge counts from app icons in the Dock. It does not read notification content.</string>
     <key>NSBluetoothAlwaysUsageDescription</key>

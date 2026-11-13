@@ -165,7 +165,7 @@ private struct DrawerWidgetRow: View {
             Text(label).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
         }
         .contentShape(Rectangle())
-        .onTapGesture { DrawerLayout.add(kind, size: size) }
+        .clickAction { DrawerLayout.add(kind, size: size) }
         .onDrag { DrawerLayout.dragProvider("new:\(kind):\(size)") }
         .help("\(WidgetLayoutStore.name(kind)) \(label): drag onto the deck or click to add")
     }

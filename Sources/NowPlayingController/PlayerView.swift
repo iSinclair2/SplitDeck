@@ -75,26 +75,36 @@ struct PlayerView: View {
     @State private var widenedForDrawer: CGFloat = 0
 
     var body: some View {
-        HStack(spacing: 0) {
-        GeometryReader { geometry in
-            let topInset: CGFloat = geometry.size.height > 900 ? 56 : 28
+        // The drawer overlays the deck rather than sitting beside it in an HStack, so opening
+        // it never raises the window's minimum width. (A full-screen Split View tile can't
+        // grow, and a minimum wider than the tile crashed the app.) When there's room, the
+        // deck is inset so nothing is hidden behind the drawer.
+        GeometryReader { outer in
+            let drawerWidth = min(Self.drawerWidth, outer.size.width)
+            let insetsDeck = layoutSession.isEditing && outer.size.width - drawerWidth >= 300
+            ZStack(alignment: .trailing) {
+                GeometryReader { geometry in
+                    let topInset: CGFloat = geometry.size.height > 900 ? 56 : 28
 
-            ZStack {
-                background
-                    .frame(width: geometry.size.width, height: geometry.size.height)
-                    .clipped()
-                VStack(spacing: 0) {
-                    Color.clear.frame(height: topInset)
-                    UtilityDeck(player: model, badges: badges)
-                        .environment(\.controlActiveState, .active)
+                    ZStack {
+                        background
+                            .frame(width: geometry.size.width, height: geometry.size.height)
+                            .clipped()
+                        VStack(spacing: 0) {
+                            Color.clear.frame(height: topInset)
+                            UtilityDeck(player: model, badges: badges)
+                                .environment(\.controlActiveState, .active)
+                        }
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                    }
                 }
-                .frame(width: geometry.size.width, height: geometry.size.height)
-            }
-        }
-            if layoutSession.isEditing {
-                LayoutDrawer()
-                    .frame(width: Self.drawerWidth)
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
+                .padding(.trailing, insetsDeck ? drawerWidth : 0)
+                if layoutSession.isEditing {
+                    LayoutDrawer()
+                        .frame(width: drawerWidth)
+                        .shadow(color: .black.opacity(insetsDeck ? 0 : 0.3), radius: 18, x: -4)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
             }
         }
         .onChange(of: layoutSession.isEditing) { _, editing in resizeWindowForDrawer(editing) }
@@ -379,9 +389,7 @@ struct PlayerView: View {
 
     @ViewBuilder private var artworkContent: some View {
         if let image = model.artworkImage {
-            Image(nsImage: image).resizable().scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .clipped()
+            ArtworkFill(image: image)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .shadow(color: .black.opacity(0.35), radius: 24, y: 12)
         } else if let icon = sourceAppIcon {
