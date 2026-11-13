@@ -210,11 +210,11 @@ struct UtilityDeck: View {
     @State private var copiedClipboardItem: String?
     @AppStorage("focusMinutes") private var focusMinutes = 25
     @AppStorage("scratchpadText") private var scratchpadText = ""
-    @AppStorage("todaySectionEnabled") private var todayEnabled = false
-    @AppStorage("focusSectionEnabled") private var focusEnabled = false
-    @AppStorage("quickShelfEnabled") private var shelfEnabled = false
-    @AppStorage("systemStatusEnabled") private var systemEnabled = false
-    @AppStorage("scratchpadEnabled") private var scratchpadEnabled = false
+    @AppStorage("todaySectionEnabled") private var todayEnabled = true
+    @AppStorage("focusSectionEnabled") private var focusEnabled = true
+    @AppStorage("quickShelfEnabled") private var shelfEnabled = true
+    @AppStorage("systemStatusEnabled") private var systemEnabled = true
+    @AppStorage("scratchpadEnabled") private var scratchpadEnabled = true
     @AppStorage("utilityAutomaticColumns") private var automaticColumns = true
     @AppStorage("utilityColumnCount") private var columnCount = 2
     @AppStorage("utilityRowCount") private var rowCount = 1
