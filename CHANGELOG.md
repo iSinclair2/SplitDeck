@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.1 — 2026-11-13
+
+### Media
+- Artwork always fills its container edge to edge, for both square album art and 16:9 video thumbnails. It could previously sit off-centre in the 1×1 and 2×2 cards.
+- Artwork for media playing in a browser: SplitDeck asks Safari, Chrome, Edge, Brave, Arc or Vivaldi which tab is playing, and shows the YouTube thumbnail or the page's own preview image for other sites (Vimeo, Twitch, SoundCloud and more). Browsers are listed in Settings → Permissions.
+
+### Fixes
+- Opening the layout drawer in full-screen Split View no longer crashes the app. The drawer now overlays the deck instead of widening the window's minimum size.
+- The World Clocks style toggle is always visible and switches the clocks immediately (it previously waited for the next 30-second refresh).
+- Click-to-open actions on widgets (Calendar, Activity Monitor, Battery, Disks, Bluetooth, Photo Frame, media artwork) and click-to-add in the layout drawer are now real buttons, so clicks can't be mistaken for dragging the window.
+
 ## 0.1.0 — 2026-11-13
 
 Initial open-source release.

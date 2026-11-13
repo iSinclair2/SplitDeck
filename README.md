@@ -58,7 +58,7 @@ Running the bundled `SplitDeck.app` (rather than the raw executable from Xcode) 
 Create release archives with:
 
 ```sh
-./scripts/package-release.sh 0.1.0
+./scripts/package-release.sh 0.1.1
 ```
 
 The archives are written to `dist/`.
